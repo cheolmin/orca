@@ -247,9 +247,13 @@ module.exports = {
     executableName: 'Orca',
     // Why: Windows installers are signed after electron-builder packaging by
     // SignPath, so the packager cannot infer the updater publisherName.
-    signtoolOptions: {
-      publisherName: 'SignPath Foundation'
-    },
+    ...(publishOwner === 'stablyai'
+      ? {
+          signtoolOptions: {
+            publisherName: 'SignPath Foundation'
+          }
+        }
+      : {}),
     extraResources: [
       ...commonExtraResources,
       ...createPackagedRuntimeNodeModuleResources('win32'),

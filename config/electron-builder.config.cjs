@@ -18,6 +18,7 @@ const { verifyPackagedPluginResources } = require('./scripts/verify-packaged-plu
 const isMacRelease = process.env.ORCA_MAC_RELEASE === '1'
 const isLinuxArm64Release = process.env.ORCA_LINUX_ARM64_RELEASE === '1'
 const localBuildVersion = isMacRelease ? undefined : process.env.ORCA_LOCAL_BUILD_VERSION
+const publishOwner = process.env.ORCA_PUBLISH_OWNER || 'stablyai'
 const appId = 'com.stablyai.orca'
 const featureWallResources = {
   from: 'resources/onboarding/feature-wall',
@@ -451,7 +452,7 @@ module.exports = {
   npmRebuild: true,
   publish: {
     provider: 'github',
-    owner: 'stablyai',
+    owner: publishOwner,
     repo: 'orca',
     releaseType: 'release'
   }

@@ -1,0 +1,79 @@
+name: Custom Windows Build
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/main/runtime/custom-mobile-relay-*.ts'
+      - 'src/main/ipc/mobile.ts'
+      - 'src/main/index.ts'
+      - 'tools/mobile-reverse-relay*'
+      - 'config/electron-builder.config.cjs'
+      - '.github/workflows/custom-windows-build.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: custom-windows-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Test custom relay
+        run: >-
+          pnpm exec vitest run --config config/vitest.config.ts
+          src/main/runtime/custom-mobile-relay-config.test.ts
+          src/main/runtime/custom-mobile-relay-client.test.ts
+          src/main/ipc/mobile.test.ts
+
+      - name: Build desktop
+        shell: pwsh
+        run: |
+          node config/scripts/ensure-native-runtime.mjs --runtime=electron
+          pnpm run build:desktop
+
+      - name: Package unsigned installer
+        shell: pwsh
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          ORCA_PUBLISH_OWNER: cheolmin
+        run: |
+          $base = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          $suffix = 'custom.${{ github.run_number }}'
+          $env:ORCA_LOCAL_BUILD_VERSION = if ($base.Contains('-')) { "$base.$suffix" } else { "$base-$suffix" }
+          pnpm exec electron-builder --config config/electron-builder.config.cjs --win --publish never
+          if (-not (Test-Path 'dist/orca-windows-setup.exe')) {
+            throw 'Windows installer was not produced'
+          }
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v7
+        with:
+          name: orca-windows-custom-${{ github.run_number }}
+          path: dist/orca-windows-setup.exe
+          if-no-files-found: error
+          retention-days: 14

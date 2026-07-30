@@ -1,0 +1,14 @@
+{
+  "name": "orca-mobile-reverse-relay",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node mobile-reverse-relay.mjs gateway --host 0.0.0.0 --port $PORT --route $ORCA_RELAY_ROUTE --secret $ORCA_RELAY_SECRET --public-base https://$WEBSITE_HOSTNAME"
+  },
+  "dependencies": {
+    "ws": "8.21.0"
+  },
+  "engines": {
+    "node": "24.x"
+  }
+}

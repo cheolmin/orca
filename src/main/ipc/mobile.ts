@@ -93,6 +93,7 @@ export type MobileHandlerDependencies = {
   firewallEnvironment?: WindowsMobileFirewallEnvironment
   openWindowsNetworkSettings?: () => Promise<void>
   getRelayStatus?: () => RelayBrokerStatus
+  getCustomPairingEndpoint?: () => string | null
   consumePendingUnpairedDeviceAuthFailure?: (webContentsId: number) => boolean
   encodePairingQr?: (pairingUrl: string) => Promise<MobilePairingQrResult>
 }
@@ -124,7 +125,8 @@ export function registerMobileHandlers(
       // Why: allow the caller to specify which network interface address to
       // embed in the QR code. This supports overlay networks (Tailscale,
       // ZeroTier) where the default LAN IP isn't reachable from the phone.
-      const ip = args?.address ?? getDefaultPairingAddress()
+      const customPairingEndpoint = dependencies.getCustomPairingEndpoint?.() ?? null
+      const ip = customPairingEndpoint ?? args?.address ?? getDefaultPairingAddress()
       if (!ip) {
         return {
           available: false as const,
@@ -143,7 +145,7 @@ export function registerMobileHandlers(
       // one so the new QR carries a different credential.
       const offer = await rpcServer.createMobilePairingOffer({
         address: ip,
-        connectionMode: args?.connectionMode,
+        connectionMode: customPairingEndpoint ? 'local-only' : args?.connectionMode,
         rotate: args?.rotate,
         name: `Mobile ${new Date().toLocaleDateString()}`
       })

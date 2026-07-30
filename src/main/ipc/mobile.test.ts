@@ -192,6 +192,7 @@ describe('registerMobileHandlers', () => {
     networkInterfacesMock.mockReturnValue({
       en0: [{ family: 'IPv4', internal: false, address: '192.168.1.24' }]
     })
+
     const createMobilePairingOffer = vi.fn().mockResolvedValue({
       available: true,
       pairingUrl: 'orca://pair#local',
@@ -205,6 +206,32 @@ describe('registerMobileHandlers', () => {
 
     expect(createMobilePairingOffer).toHaveBeenCalledWith(
       expect.objectContaining({ connectionMode: 'local-only' })
+    )
+  })
+
+  it('uses a configured custom relay endpoint without Orca Relay provisioning', async () => {
+    const createMobilePairingOffer = vi.fn().mockResolvedValue({
+      available: true,
+      pairingUrl: 'orca://pair#custom',
+      endpoint: 'wss://relay.example/v1/connect/route',
+      deviceId: 'mobile-custom',
+      connectionMode: 'local-only'
+    })
+
+    registerMobileHandlers(
+      { createMobilePairingOffer } as never,
+      { getCustomPairingEndpoint: () => 'wss://relay.example/v1/connect/route' }
+    )
+    await handlers.get('mobile:getPairingQR')?.(null, {
+      address: '192.168.1.24',
+      connectionMode: 'automatic'
+    })
+
+    expect(createMobilePairingOffer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        address: 'wss://relay.example/v1/connect/route',
+        connectionMode: 'local-only'
+      })
     )
   })
 

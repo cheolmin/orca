@@ -78,6 +78,8 @@ import { ServeReadinessPublisher } from './server/serve-readiness'
 import { reserveServeStdoutForReadiness } from './server/serve-stdout-boundary'
 import { DesktopRelayService } from './runtime/relay/desktop-relay-service'
 import type { RelayBrokerStatus } from './runtime/relay/relay-session-broker'
+import { CustomMobileRelayClient } from './runtime/custom-mobile-relay-client'
+import { loadCustomMobileRelayConfig } from './runtime/custom-mobile-relay-config'
 import { awaitRuntimeFileWatcherUnsubscribes } from './runtime/orca-runtime-files'
 import { clearRuntimeMetadataIfOwned } from './runtime/runtime-metadata'
 import { scheduleAllPendingHistoryTreeRemovals } from './terminal-history-deletion'
@@ -316,6 +318,7 @@ let rateLimits: RateLimitService | null = null
 let runtimeRpc: OrcaRuntimeRpcServer | null = null
 const serveReadinessPublisher = new ServeReadinessPublisher()
 let desktopRelayService: DesktopRelayService | null = null
+let customMobileRelayClient: CustomMobileRelayClient | null = null
 let desktopRelayStatus: RelayBrokerStatus = 'offline'
 let pendingUnpairedDeviceAuthFailure = false
 // Why: gates whether headless serve installs the offscreen browser backend (and advertises browser pane support).
@@ -328,6 +331,11 @@ let unsubscribeAgentAwakeStatusChanges: (() => void) | null = null
 let unsubscribeSystemResumeBroadcast: (() => void) | null = null
 let watcherShutdownPromise: Promise<void> | null = null
 let watcherShutdownDone = false
+
+function publishDesktopRelayStatus(status: RelayBrokerStatus): void {
+  desktopRelayStatus = status
+  mainWindow?.webContents.send('mobile:relayStatusChanged', status)
+}
 let automations: AutomationService | null = null
 let pluginService: PluginService | null = null
 let pluginKillListService: PluginKillListService | null = null
@@ -2691,6 +2699,7 @@ void app.whenReady().then(async () => {
   }
   // Why: existing installs may have pairing creds under the late app.getPath('userData'); copy them forward before switching to the canonical path.
   migrateMobilePairingDataToCanonicalUserDataPath(app.getPath('userData'))
+  const customMobileRelayConfig = loadCustomMobileRelayConfig(getCanonicalUserDataPath())
   runtimeRpc = new OrcaRuntimeRpcServer({
     runtime,
     // Why: mobile pairing needs the stable pre-setName() path (getCanonicalUserDataPath), not a late app.getPath('userData') that drops paired devices across restarts.
@@ -2709,6 +2718,7 @@ void app.whenReady().then(async () => {
   })
   registerMobileHandlers(runtimeRpc, {
     getRelayStatus: () => desktopRelayStatus,
+    getCustomPairingEndpoint: () => customMobileRelayConfig?.mobileEndpoint ?? null,
     consumePendingUnpairedDeviceAuthFailure: (webContentsId) => {
       if (
         !mainWindow ||
@@ -2730,6 +2740,18 @@ void app.whenReady().then(async () => {
       mainWindow.webContents.send('mobile:unpairedDeviceAuthFailure')
     }
   })
+  const startCustomMobileRelay = (): void => {
+    const localEndpoint = runtimeRpc?.getWebSocketEndpoint()
+    if (!customMobileRelayConfig || !localEndpoint || customMobileRelayClient) {
+      return
+    }
+    customMobileRelayClient = new CustomMobileRelayClient({
+      config: customMobileRelayConfig,
+      localEndpoint,
+      onStatus: publishDesktopRelayStatus
+    })
+    customMobileRelayClient.start()
+  }
 
   startTerminalRuntimeStartupServices()
   app.on('activate', handleMacAppActivation)
@@ -2763,6 +2785,7 @@ void app.whenReady().then(async () => {
       console.error('[runtime] Failed to start headless RPC transport:', error)
       throw error
     })
+    startCustomMobileRelay()
     settleServeDesktopActivation()
     installServeSignalHandlers()
     // Why: headless serve has no renderer to run the normal cli:install flow; do it here for macOS/Linux only (Windows-excluded: install() only mutates registry PATH, not child terminals).
@@ -2825,18 +2848,19 @@ void app.whenReady().then(async () => {
     void showRuntimeRpcStartupFailureDialog(win, runtimeRpcStartResult.error)
   }
 
+  if (runtimeRpcStartResult.ok) {
+    startCustomMobileRelay()
+  }
+
   const cloudAuth = getOrcaCloudAuthConfig()
-  if (cloudAuth.configured) {
+  if (!customMobileRelayConfig && cloudAuth.configured) {
     try {
       const relayService = new DesktopRelayService({
         authConfig: cloudAuth.config,
         userDataPath: getProfileUserDataPath(),
         appVersion: app.getVersion(),
         runtimeRpc,
-        onStatus: (status) => {
-          desktopRelayStatus = status
-          mainWindow?.webContents.send('mobile:relayStatusChanged', status)
-        }
+        onStatus: publishDesktopRelayStatus
       })
       desktopRelayService = relayService
       runtimeRpc.setMobileRelayPairingProvider({
@@ -2878,6 +2902,8 @@ app.on('before-quit', () => {
     })
   }
   isQuitting = true
+  customMobileRelayClient?.stop()
+  customMobileRelayClient = null
   desktopRelayService?.fenceAndCloseNow()
   runtimeRpc?.setMobileRelayPairingProvider(null)
   unsubscribeSystemResumeBroadcast?.()

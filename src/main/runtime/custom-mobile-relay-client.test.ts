@@ -37,7 +37,7 @@ describe('CustomMobileRelayClient', () => {
     await Promise.all([once(local, 'listening'), once(gateway, 'listening')])
     const localPort = tcpPort(local)
     const gatewayPort = tcpPort(gateway)
-    const received: Array<{ data: RawData; isBinary: boolean }> = []
+    const received: { data: RawData; isBinary: boolean }[] = []
     let resolveFrames: (() => void) | null = null
     const frames = new Promise<void>((resolve) => {
       resolveFrames = resolve

@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from 'node:crypto'
 import { once } from 'node:events'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import WebSocket, { WebSocketServer, type RawData } from 'ws'
+import { WebSocketServer, type RawData } from 'ws'
 import { CustomMobileRelayClient } from './custom-mobile-relay-client'
 import type { CustomMobileRelayConfig } from './custom-mobile-relay-config'
 

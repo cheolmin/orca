@@ -4,19 +4,18 @@ import { join, relative } from 'node:path'
 const roots = ['out/main', 'out/renderer']
 const forbidden = [
   'https://github.com/stablyai/orca/releases.atom',
-  'https://github.com/stablyai/orca/releases/download',
+  'https://github.com/stablyai/orca/releases/latest/download',
   'https://github.com/stablyai/orca/releases/tag'
 ]
-const required = ['cheolmin/orca']
-const hits = new Map(required.map((value) => [value, false]))
+const requiredByRoot = new Map(roots.map((root) => [root, false]))
 const violations = []
 
-function inspect(directory) {
+function inspect(root, directory) {
   for (const name of readdirSync(directory)) {
     const file = join(directory, name)
     const stat = statSync(file)
     if (stat.isDirectory()) {
-      inspect(file)
+      inspect(root, file)
       continue
     }
     if (!/\.(js|html)$/.test(name)) {
@@ -28,20 +27,18 @@ function inspect(directory) {
         violations.push(`${relative(process.cwd(), file)} contains ${value}`)
       }
     }
-    for (const value of required) {
-      if (source.includes(value)) {
-        hits.set(value, true)
-      }
+    if (source.includes('cheolmin/orca')) {
+      requiredByRoot.set(root, true)
     }
   }
 }
 
 for (const root of roots) {
-  inspect(root)
+  inspect(root, root)
 }
-for (const [value, found] of hits) {
+for (const [root, found] of requiredByRoot) {
   if (!found) {
-    violations.push(`built desktop is missing ${value}`)
+    violations.push(`${root} is missing cheolmin/orca`)
   }
 }
 if (violations.length > 0) {

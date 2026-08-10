@@ -16,10 +16,13 @@ export const RELEASE_CHANNEL_LABELS: Readonly<Record<ReleaseChannel, string>> = 
  *  tags a day would evict every stable/RC entry and strand real users. */
 export const HOURLY_RELEASE_REPO = 'stablyai/orca-hourly'
 export const ADHOC_RELEASE_REPO = 'stablyai/orca-adhoc'
+const configuredMainReleaseRepo = (
+  globalThis as typeof globalThis & { ORCA_RELEASE_REPOSITORY?: string }
+).ORCA_RELEASE_REPOSITORY
+
 export const MAIN_RELEASE_REPO =
-  typeof (globalThis as { ORCA_RELEASE_REPOSITORY?: string }).ORCA_RELEASE_REPOSITORY === 'string' &&
-  (globalThis as { ORCA_RELEASE_REPOSITORY?: string }).ORCA_RELEASE_REPOSITORY
-    ? (globalThis as { ORCA_RELEASE_REPOSITORY: string }).ORCA_RELEASE_REPOSITORY
+  typeof configuredMainReleaseRepo === 'string' && configuredMainReleaseRepo
+    ? configuredMainReleaseRepo
     : 'stablyai/orca'
 
 export const HOURLY_PRERELEASE_IDENTIFIER = 'hourly'

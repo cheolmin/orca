@@ -10,7 +10,7 @@ on:
       - 'src/main/runtime/custom-mobile-relay-*.ts'
       - 'src/main/ipc/mobile.ts'
       - 'src/main/index.ts'
-      - 'tools/mobile-reverse-relay*'
+      - 'tests/tools/mobile-reverse-relay*'
       - 'config/electron-builder.config.cjs'
       - '.github/workflows/custom-windows-build.yml'
 
@@ -48,6 +48,7 @@ jobs:
           pnpm exec vitest run --config config/vitest.config.ts
           src/main/runtime/custom-mobile-relay-config.test.ts
           src/main/runtime/custom-mobile-relay-client.test.ts
+          src/main/ipc/mobile-custom-relay.test.ts
           src/main/ipc/mobile.test.ts
 
       - name: Build desktop

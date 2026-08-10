@@ -83,6 +83,10 @@ function makeMessage(text: string): NativeChatMessage {
   }
 }
 
+function makeTextMessage(text: string): NativeChatMessage {
+  return { ...makeMessage(''), blocks: [{ type: 'text', text }] }
+}
+
 function readSessionHandler(): (params: unknown, ctx: RpcContext) => Promise<unknown> {
   const method = NATIVE_CHAT_METHODS.find((m) => m.name === 'nativeChat.readSession')
   if (!method) {
@@ -144,9 +148,73 @@ describe('nativeChat.readSession clientKind truncation gating', () => {
       ctxWith('mobile')
     )
     const output = firstOutput(result)
-    expect(output.length).toBeLessThan(OVERSIZED.length)
-    expect(output).toContain('truncated')
+    expect(output).toBe(`${OVERSIZED.slice(0, 4000)}\n… (truncated)`)
   })
+
+  // STA-3230: a paired desktop or mobile client saw long assistant replies cut
+  // at the tool-preview cap with `… (truncated)` and no way to read the rest.
+  it('passes a long assistant text block through unclipped for mobile clients', async () => {
+    const text = 'prose '.repeat(1000)
+    cachedResult.value = { messages: [makeTextMessage(text)] }
+    const result = await readSessionHandler()(
+      { agent: 'claude', sessionId: 's' },
+      ctxWith('mobile')
+    )
+    const block = (result as { messages: NativeChatMessage[] }).messages[0].blocks[0] as {
+      text: string
+    }
+    expect(block.text).toBe(text)
+  })
+
+  it('clips a pathological text block at the safety ceiling for mobile clients', async () => {
+    const text = 'y'.repeat(70_000)
+    cachedResult.value = { messages: [makeTextMessage(text)] }
+    const result = await readSessionHandler()(
+      { agent: 'claude', sessionId: 's' },
+      ctxWith('mobile')
+    )
+    const block = (result as { messages: NativeChatMessage[] }).messages[0].blocks[0] as {
+      text: string
+    }
+    expect(block.text).toBe(`${text.slice(0, 64_000)}\n… (truncated)`)
+  })
+
+  it.each(['mobile', 'runtime', undefined] as const)(
+    'omits inline image bodies and oversized metadata for %s clients',
+    async (clientKind) => {
+      cachedResult.value = {
+        messages: [
+          {
+            ...makeMessage('ignored'),
+            blocks: [
+              {
+                type: 'image-ref',
+                url: `data:image/png;base64,${'a'.repeat(10_000)}`,
+                alt: 'Inline image'
+              },
+              { type: 'image-ref', url: ' \tdata:image/png;base64,abc' },
+              { type: 'image-ref', url: 'https://example.com/reference.png' },
+              { type: 'image-ref', path: '/'.repeat(600) }
+            ]
+          }
+        ]
+      }
+
+      const result = await readSessionHandler()(
+        { agent: 'codex', sessionId: 's' },
+        ctxWith(clientKind)
+      )
+      const messages = (result as { messages: NativeChatMessage[] }).messages
+
+      expect(messages[0].blocks).toEqual([
+        { type: 'image-ref', alt: 'Inline image' },
+        { type: 'image-ref' },
+        { type: 'image-ref', url: 'https://example.com/reference.png' },
+        { type: 'image-ref' }
+      ])
+      expect(JSON.stringify(messages).length).toBeLessThan(1_000)
+    }
+  )
 
   it('bounds raw tool-call inputs before sending them to mobile', async () => {
     cachedResult.value = {
@@ -324,6 +392,33 @@ describe('nativeChat.readSession clientKind truncation gating', () => {
 })
 
 describe('nativeChat.subscribe initial snapshot', () => {
+  it('preserves long assistant text across mobile stream frame types', async () => {
+    watcher.watching = true
+    watcher.args = null
+    const emitted: unknown[] = []
+    const text = 'prose '.repeat(1000)
+    const message = makeTextMessage(text)
+    await subscribeHandler()(
+      { agent: 'claude', sessionId: 's' },
+      streamingContext('mobile'),
+      (value) => emitted.push(value)
+    )
+
+    const callbacks = activeWatcherArgs()
+    callbacks.onInitialSnapshot?.([message], false, 123)
+    callbacks.onReplace?.([message], false, 123)
+    callbacks.onAppend([message])
+
+    expect(emitted.map((frame) => (frame as { type: string }).type)).toEqual([
+      'snapshot',
+      'replacement',
+      'appended'
+    ])
+    for (const frame of emitted as { messages: NativeChatMessage[] }[]) {
+      expect(frame.messages[0].blocks[0]).toEqual({ type: 'text', text })
+    }
+  })
+
   it('emits one windowed snapshot with pagination state before live appends', async () => {
     watcher.watching = true
     watcher.args = null

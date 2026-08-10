@@ -29,7 +29,11 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git remote add upstream https://github.com/stablyai/orca.git
-          git fetch upstream main
+          git fetch upstream main --tags
+          latest_release=$(git tag --list 'v[0-9]*' | grep -v '-' | sort -V | tail -1)
+          if [ -n "$latest_release" ]; then
+            git push origin "refs/tags/$latest_release"
+          fi
           git switch -C automation/upstream-sync origin/main
           git merge --no-edit upstream/main
           if git diff --quiet origin/main...HEAD; then

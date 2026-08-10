@@ -266,7 +266,7 @@ export const electronViteConfig: UserConfig = {
       ORCA_BUILD_IDENTITY: ORCA_BUILD_IDENTITY_LITERAL,
       ORCA_POSTHOG_WRITE_KEY: ORCA_POSTHOG_WRITE_KEY_LITERAL,
       ORCA_DIAGNOSTICS_TOKEN_URL: ORCA_DIAGNOSTICS_TOKEN_URL_LITERAL,
-      ORCA_RELEASE_REPOSITORY: ORCA_RELEASE_REPOSITORY_LITERAL
+      'globalThis.ORCA_RELEASE_REPOSITORY': ORCA_RELEASE_REPOSITORY_LITERAL
     },
     // Why: @xterm/headless declares "exports": null in package.json, which
     // prevents Vite's default resolver from finding the CJS entry. Point
@@ -289,7 +289,7 @@ export const electronViteConfig: UserConfig = {
   },
   renderer: {
     define: {
-      ORCA_RELEASE_REPOSITORY: ORCA_RELEASE_REPOSITORY_LITERAL
+      'globalThis.ORCA_RELEASE_REPOSITORY': ORCA_RELEASE_REPOSITORY_LITERAL
     },
     resolve: {
       alias: {

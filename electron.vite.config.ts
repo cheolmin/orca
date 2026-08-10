@@ -57,6 +57,12 @@ const ORCA_DIAGNOSTICS_TOKEN_URL_LITERAL =
   typeof orcaDiagnosticsTokenUrl === 'string' && orcaDiagnosticsTokenUrl.length > 0
     ? JSON.stringify(orcaDiagnosticsTokenUrl)
     : 'null'
+const orcaReleaseRepository = process.env.ORCA_RELEASE_REPOSITORY
+const ORCA_RELEASE_REPOSITORY_LITERAL =
+  typeof orcaReleaseRepository === 'string' &&
+  /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(orcaReleaseRepository)
+    ? JSON.stringify(orcaReleaseRepository)
+    : JSON.stringify('stablyai/orca')
 
 function createStartupDiagnosticsBanner(chunkName: string): string {
   return `
@@ -259,7 +265,8 @@ export const electronViteConfig: UserConfig = {
     define: {
       ORCA_BUILD_IDENTITY: ORCA_BUILD_IDENTITY_LITERAL,
       ORCA_POSTHOG_WRITE_KEY: ORCA_POSTHOG_WRITE_KEY_LITERAL,
-      ORCA_DIAGNOSTICS_TOKEN_URL: ORCA_DIAGNOSTICS_TOKEN_URL_LITERAL
+      ORCA_DIAGNOSTICS_TOKEN_URL: ORCA_DIAGNOSTICS_TOKEN_URL_LITERAL,
+      'globalThis.ORCA_RELEASE_REPOSITORY': ORCA_RELEASE_REPOSITORY_LITERAL
     },
     // Why: @xterm/headless declares "exports": null in package.json, which
     // prevents Vite's default resolver from finding the CJS entry. Point
@@ -281,6 +288,9 @@ export const electronViteConfig: UserConfig = {
     }
   },
   renderer: {
+    define: {
+      'globalThis.ORCA_RELEASE_REPOSITORY': ORCA_RELEASE_REPOSITORY_LITERAL
+    },
     resolve: {
       alias: {
         '@renderer': resolve('src/renderer/src'),

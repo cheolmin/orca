@@ -237,6 +237,8 @@ vi.mock('./updater-prerelease-feed', () => ({
       ? { tags: result, state: result.length > 0 ? 'ready' : 'no-newer' }
       : result
   },
+  getLatestReleaseDownloadUrl: () =>
+    'https://github.com/stablyai/orca/releases/latest/download',
   getReleaseDownloadUrl: (tag: string) =>
     `https://github.com/stablyai/orca/releases/download/${tag}`
 }))

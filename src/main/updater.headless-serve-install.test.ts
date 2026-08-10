@@ -88,6 +88,7 @@ vi.mock('./updater-prerelease-feed', () => ({
     tags: ['v1.0.61'],
     state: 'ready'
   }),
+  getLatestReleaseDownloadUrl: vi.fn(() => 'https://example.invalid/latest'),
   getReleaseDownloadUrl: vi.fn()
 }))
 vi.mock('./update-install-exit-watchdog', () => ({

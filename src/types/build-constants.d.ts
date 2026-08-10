@@ -20,3 +20,7 @@ declare const ORCA_POSTHOG_WRITE_KEY: string | null
 // point a packaged build at a staging server without re-running the
 // release pipeline.
 declare const ORCA_DIAGNOSTICS_TOKEN_URL: string | null
+
+// GitHub owner/repo used by updater checks and release-note links. Official
+// builds default to stablyai/orca; maintained forks inject their own repo.
+declare const ORCA_RELEASE_REPOSITORY: string

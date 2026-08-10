@@ -16,7 +16,10 @@ export const RELEASE_CHANNEL_LABELS: Readonly<Record<ReleaseChannel, string>> = 
  *  tags a day would evict every stable/RC entry and strand real users. */
 export const HOURLY_RELEASE_REPO = 'stablyai/orca-hourly'
 export const ADHOC_RELEASE_REPO = 'stablyai/orca-adhoc'
-export const MAIN_RELEASE_REPO = 'stablyai/orca'
+export const MAIN_RELEASE_REPO =
+  typeof ORCA_RELEASE_REPOSITORY === 'string' && ORCA_RELEASE_REPOSITORY
+    ? ORCA_RELEASE_REPOSITORY
+    : 'stablyai/orca'
 
 export const HOURLY_PRERELEASE_IDENTIFIER = 'hourly'
 export const ADHOC_PRERELEASE_IDENTIFIER = 'adhoc'

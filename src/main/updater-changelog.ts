@@ -1,5 +1,6 @@
 import { net } from 'electron'
 import type { ChangelogData } from '../shared/types'
+import { MAIN_RELEASE_REPO } from '../shared/release-channel'
 import { compareVersions } from './updater-fallback'
 
 type ChangelogEntry = {
@@ -42,6 +43,9 @@ export async function fetchChangelog(
   incomingVersion: string,
   localVersion: string
 ): Promise<ChangelogData | null> {
+  if (MAIN_RELEASE_REPO !== 'stablyai/orca') {
+    return null
+  }
   const res = await net.fetch('https://onorca.dev/whats-new/changelog.json', {
     signal: AbortSignal.timeout(5000)
   })

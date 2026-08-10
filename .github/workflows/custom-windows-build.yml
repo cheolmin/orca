@@ -25,6 +25,8 @@ jobs:
   build:
     runs-on: windows-2022
     timeout-minutes: 60
+    env:
+      ORCA_RELEASE_REPOSITORY: cheolmin/orca
 
     steps:
       - uses: actions/checkout@v6
@@ -56,6 +58,9 @@ jobs:
         run: |
           node config/scripts/ensure-native-runtime.mjs --runtime=electron
           pnpm run build:desktop
+
+      - name: Verify fork updater target
+        run: node tests/tools/verify-custom-updater-target.mjs
 
       - name: Set custom version
         shell: pwsh

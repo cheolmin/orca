@@ -29,13 +29,16 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git remote add upstream https://github.com/stablyai/orca.git
-          git fetch upstream main --tags
+          git fetch upstream --tags
           latest_release=$(git tag --list 'v[0-9]*' | grep -v '-' | sort -V | tail -1)
           if [ -n "$latest_release" ]; then
             git push origin "refs/tags/$latest_release"
+          else
+            echo "No stable upstream release tag found."
+            exit 1
           fi
           git switch -C automation/upstream-sync origin/main
-          git merge --no-edit upstream/main
+          git merge --no-edit "$latest_release"
           if git diff --quiet origin/main...HEAD; then
             echo "Already current with upstream."
             exit 0
@@ -43,12 +46,12 @@ jobs:
           git push --force-with-lease origin HEAD
           if gh pr view automation/upstream-sync --json number --jq .number >/dev/null 2>&1; then
             gh pr edit automation/upstream-sync \
-              --title "Sync upstream stablyai/orca" \
-              --body "Automated upstream merge. Merge only after custom relay checks pass."
+              --title "Sync upstream Orca $latest_release" \
+              --body "Automated stable-release merge. Merge only after custom relay checks pass."
           else
             gh pr create \
               --base main \
               --head automation/upstream-sync \
-              --title "Sync upstream stablyai/orca" \
-              --body "Automated upstream merge. Merge only after custom relay checks pass."
+              --title "Sync upstream Orca $latest_release" \
+              --body "Automated stable-release merge. Merge only after custom relay checks pass."
           fi

@@ -1,0 +1,58 @@
+name: Relay Public Access Remediator
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/5 * * * *'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: relay-public-access-remediator
+  cancel-in-progress: false
+
+jobs:
+  remediate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Sign in to Azure with OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Restore public access when disabled
+        env:
+          RESOURCE_ID: ${{ vars.ORCA_RELAY_RESOURCE_ID }}
+        run: |
+          state=$(az resource show \
+            --ids "$RESOURCE_ID" \
+            --query properties.publicNetworkAccess \
+            --output tsv)
+          if [ "$state" != "Enabled" ]; then
+            echo "Restoring publicNetworkAccess: ${state:-unset} -> Enabled"
+            az resource update \
+              --ids "$RESOURCE_ID" \
+              --set properties.publicNetworkAccess=Enabled \
+              --output none
+          else
+            echo "publicNetworkAccess is already Enabled"
+          fi
+
+      - name: Verify relay health
+        run: |
+          for attempt in $(seq 1 24); do
+            if curl --fail --silent --show-error \
+              --max-time 15 \
+              https://orca-relay-cf30b3eadb.azurewebsites.net/healthz; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Relay health check did not recover in time" >&2
+          exit 1
